@@ -1873,12 +1873,24 @@ export function ShortcutKeyModal(props: { onClose: () => void }) {
     </div>
   );
 }
-
+var ct = 0;
 function _Chat() {
   type RenderMessage = ChatMessage & { preview?: boolean };
 
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
+  const maskList = useMaskStore().getAll();
+  // 根据 session.mask.id 查找并更新 mask
+  const foundMask = maskList.find((mask) => mask.id === session.mask.id);
+  if (!foundMask) {
+    console.log("${session.mask.id} not found in ${maskList}");
+  }
+  if (ct === 0) {
+    chatStore.updateTargetSession(session, (updatedSession) => {
+      updatedSession.mask = foundMask;
+    });
+    ct++;
+  }
   const config = useAppConfig();
   const fontSize = config.fontSize;
   const fontFamily = config.fontFamily;
@@ -2102,9 +2114,18 @@ function _Chat() {
         (session.messages = session.messages.filter((m) => m.id !== msgId)),
     );
   };
-
+  const deleteMessageAfter = (msgId?: string) => {
+    chatStore.updateTargetSession(session, (session) => {
+      const index = session.messages.findIndex((m) => m.id === msgId);
+      if (index < 0) {
+        console.warn(`index < 0`, index);
+        return;
+      }
+      session.messages = session.messages.slice(0, index);
+    });
+  };
   const onDelete = (msgId: string) => {
-    deleteMessage(msgId);
+    deleteMessageAfter(msgId);
   };
 
   const onResend = (message: ChatMessage) => {
@@ -2158,7 +2179,7 @@ function _Chat() {
     }
 
     // 如果是重试用户消息，使用原有逻辑（删除后续消息并重新发送）
-    deleteMessage(userMessage.id);
+    deleteMessageAfter(userMessage.id);
     setIsLoading(true);
     const textContent = getMessageTextContent(userMessage);
     const images = getMessageImages(userMessage);
@@ -2222,6 +2243,7 @@ function _Chat() {
   };
 
   const onPinMessage = (message: ChatMessage) => {
+    console.log("wu chatStore.currentSession():", chatStore.currentSession());
     chatStore.updateTargetSession(session, (session) =>
       session.mask.context.push(message),
     );
@@ -2857,18 +2879,38 @@ function _Chat() {
                                 ></IconButton>
                               </div>
                               {isUser ? (
-                                <Avatar avatar={config.avatar} />
+                                <img
+                                  src={session.mask.myAvatar}
+                                  alt={""}
+                                  width={30}
+                                  height={30}
+                                  style={{
+                                    borderRadius: "50%",
+                                    objectFit: "cover",
+                                    border: "1px solid #ddd", // 可选的边框
+                                  }}
+                                  onError={(e) => {
+                                    console.log(`图片加载失败`, e);
+                                  }}
+                                />
                               ) : (
                                 <>
                                   {["system"].includes(message.role) ? (
                                     <Avatar avatar="2699-fe0f" />
                                   ) : (
-                                    <MaskAvatar
-                                      avatar={session.mask.avatar}
-                                      model={
-                                        message.model ||
-                                        session.mask.modelConfig.model
-                                      }
+                                    <img
+                                      src={session.mask.botAvatar}
+                                      alt={""}
+                                      width={30}
+                                      height={30}
+                                      style={{
+                                        borderRadius: "50%",
+                                        objectFit: "cover",
+                                        border: "1px solid #ddd", // 可选的边框
+                                      }}
+                                      onError={(e) => {
+                                        console.log(`图片加载失败`, e);
+                                      }}
                                     />
                                   )}
                                 </>
@@ -2876,18 +2918,7 @@ function _Chat() {
                             </div>
                             {!isUser && (
                               <div className={styles["chat-model-name"]}>
-                                {message.isMultiModel && message.modelKey ? (
-                                  <>
-                                    {message.model}
-                                    <span
-                                      className={styles["chat-model-provider"]}
-                                    >
-                                      @{message.modelKey.split("@")[1]}
-                                    </span>
-                                  </>
-                                ) : (
-                                  message.model
-                                )}
+                                {session.mask.botName}
                               </div>
                             )}
 

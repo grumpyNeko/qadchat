@@ -21,6 +21,7 @@ import { getModelCapabilitiesWithCustomConfig } from "@/app/config/model-capabil
 import { preProcessImageContent } from "@/app/utils/chat";
 import { RequestPayload } from "./openai";
 import { fetch } from "@/app/utils/stream";
+import { useMaskStore } from "@/app/store/mask";
 
 export class XAIApi implements LLMApi {
   private disableListModels = true;
@@ -111,77 +112,35 @@ export class XAIApi implements LLMApi {
       );
 
       if (shouldStream) {
-        const tools: any[] = [];
-        const funcs: Record<string, Function> = {};
-        const modelCapabilities = getModelCapabilitiesWithCustomConfig(
-          options.config.model,
-        );
-        streamWithThink(
-          chatPath,
-          requestPayload,
-          getHeaders(false, {
-            model: options.config.model,
-            providerName: options.config.providerName,
-          }),
-          tools as any,
-          funcs,
-          controller,
-          // parseSSE
-          (text: string, runTools: ChatMessageTool[]) => {
-            // console.log("parseSSE", text, runTools);
-            const json = JSON.parse(text);
-            const choices = json.choices as Array<{
-              delta: {
-                content: string;
-                tool_calls: ChatMessageTool[];
-              };
-            }>;
-            const tool_calls = choices[0]?.delta?.tool_calls;
-            if (tool_calls?.length > 0) {
-              const index = tool_calls[0]?.index;
-              const id = tool_calls[0]?.id;
-              const args = tool_calls[0]?.function?.arguments;
-              if (id) {
-                runTools.push({
-                  id,
-                  type: tool_calls[0]?.type,
-                  function: {
-                    name: tool_calls[0]?.function?.name as string,
-                    arguments: args,
-                  },
-                });
-              } else {
-                // @ts-ignore
-                runTools[index]["function"]["arguments"] += args;
-              }
-            }
-            return {
-              isThinking: false,
-              content: choices[0]?.delta?.content,
-            };
-          },
-          // processToolMessage, include tool_calls message and tool call results
-          (
-            requestPayload: RequestPayload,
-            toolCallMessage: any,
-            toolCallResult: any[],
-          ) => {
-            // @ts-ignore
-            requestPayload?.messages?.splice(
-              // @ts-ignore
-              requestPayload?.messages?.length,
-              0,
-              toolCallMessage,
-              ...toolCallResult,
-            );
-          },
-          options,
-          modelCapabilities.reasoning || false, // 传递模型推理能力
-        );
+        console.log("xai Stream 应该被禁用");
       } else {
-        const res = await fetch(chatPath, chatPayload);
-        clearTimeout(requestTimeoutId);
+        const session = useChatStore.getState().currentSession();
+        const mask = session.mask;
+        // TODO: 检查这个mask是否合法
+        // useMaskStore().masks[mask.id]
 
+        requestPayload.model = JSON.stringify({
+          sessionid: session.id,
+          maskname: mask.name,
+        });
+        console.log(`wu mask.bendUrl is ${session.mask.bendUrl}`, session);
+        const res = await fetch(mask.bendUrl, {
+          method: "POST",
+          body: JSON.stringify(requestPayload),
+          signal: controller.signal,
+          // 加入header会cors
+          // headers: {
+          //   sessionid: session.id,
+          // },
+        });
+        clearTimeout(requestTimeoutId);
+        // Log ReadableStream body content for debugging
+        try {
+          const bodyText = await res.clone().text();
+          console.log("[XAI Response body as text]", bodyText);
+        } catch (err) {
+          console.log("[XAI Response body read error]", err);
+        }
         const resJson = await res.json();
         const message = this.extractMessage(resJson);
         options.onFinish(message, res);

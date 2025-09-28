@@ -556,7 +556,7 @@ export const useChatStore = createPersistStore(
 
         get().checkMcpJson(message);
 
-        get().summarizeSession(false, targetSession);
+        //get().summarizeSession(false, targetSession);
       },
 
       async onUserInput(
@@ -565,7 +565,7 @@ export const useChatStore = createPersistStore(
         isMcpResponse?: boolean,
       ) {
         const session = get().currentSession();
-
+        console.log(`wu onUserInput currentSession=`, session);
         // 检查是否为多模型模式
         if (
           session.multiModelMode?.enabled &&
@@ -625,12 +625,13 @@ export const useChatStore = createPersistStore(
         });
 
         const api: ClientApi = getClientApi(modelConfig.providerName);
-
+        console.log(`wu: onUserInput`);
         // make request
         api.llm.chat({
           messages: sendMessages,
-          config: { ...modelConfig, stream: true },
+          config: { ...modelConfig, stream: false },
           onUpdate(message) {
+            console.log(`should not onUpdate`);
             botMessage.streaming = true;
             if (message) {
               botMessage.content = message;
@@ -644,27 +645,97 @@ export const useChatStore = createPersistStore(
             }
           },
           async onFinish(message) {
-            // 立即刷新任何待处理的更新
-            streamOptimizer.flushUpdates();
-
-            get().updateTargetSession(session, (session) => {
-              const messageIndex = session.messages.findIndex(
-                (m) => m.id === botMessage.id,
-              );
-
-              if (messageIndex > -1) {
-                const finalBotMessage = {
-                  ...session.messages[messageIndex],
-                  streaming: false,
-                  content: message,
-                  date: new Date().toLocaleString(),
-                };
-
-                session.messages[messageIndex] = finalBotMessage;
-                get().onNewMessage(finalBotMessage, session);
+            // // 立即刷新任何待处理的更新
+            // streamOptimizer.flushUpdates();
+            //
+            // get().updateTargetSession(session, (session) => {
+            //   const messageIndex = session.messages.findIndex(
+            //     (m) => m.id === botMessage.id,
+            //   );
+            //
+            //   if (messageIndex > -1) {
+            //     const finalBotMessage = {
+            //       ...session.messages[messageIndex],
+            //       streaming: false,
+            //       content: message,
+            //       date: new Date().toLocaleString(),
+            //     };
+            //
+            //     session.messages[messageIndex] = finalBotMessage;
+            //     get().onNewMessage(finalBotMessage, session);
+            //   }
+            // });
+            //
+            // ChatControllerPool.remove(session.id, botMessage.id);
+            botMessage.streaming = false;
+            if (message) {
+              botMessage.content = message;
+              botMessage.date = new Date().toLocaleString();
+              get().onNewMessage(botMessage, session);
+            }
+            if (session.mask.name === "translate") {
+              console.log(`handle translate`);
+              interface TranslateLLMResponse {
+                literal: string;
+                free: string;
               }
-            });
-
+              let parsedPayload: TranslateLLMResponse = {
+                literal: "",
+                free: "",
+              };
+              try {
+                parsedPayload = JSON.parse(message);
+              } catch (error) {
+                console.error("Error parsing JSON:", message);
+              }
+              // undo, 但是onNewMessage...
+              botMessage.content = parsedPayload.literal;
+              get().updateTargetSession(session, (session) => {
+                session.messages = session.messages.concat([
+                  createMessage({
+                    role: "assistant",
+                    streaming: false,
+                    model: modelConfig.model,
+                    content: parsedPayload.free,
+                    date: new Date().toLocaleString(),
+                  }),
+                ]);
+              });
+              get().onNewMessage(botMessage, session);
+            } else if (session.mask.name === "Charlie") {
+              console.log(`handle Charlie`);
+              interface CharlieLLMResponse {
+                // user_msg_eng: string;
+                reply_eng: string;
+                reply_chs: string;
+              }
+              let parsedPayload: CharlieLLMResponse = {
+                // user_msg_eng: "",
+                reply_eng: "",
+                reply_chs: "",
+              };
+              try {
+                parsedPayload = JSON.parse(message);
+              } catch (error) {
+                console.error("Error parsing JSON:", message);
+              }
+              // undo, 但是onNewMessage...
+              botMessage.content = parsedPayload.reply_eng;
+              get().updateTargetSession(session, (session) => {
+                session.messages = session.messages.concat([
+                  createMessage({
+                    role: "assistant",
+                    streaming: false,
+                    model: modelConfig.model,
+                    content: parsedPayload.reply_chs,
+                    date: new Date().toLocaleString(),
+                  }),
+                ]);
+              });
+              get().onNewMessage(botMessage, session);
+            } else {
+              console.log(`panic: no handler for ${session.mask.name}`);
+            }
             ChatControllerPool.remove(session.id, botMessage.id);
           },
           onBeforeTool(tool: ChatMessageTool) {
@@ -726,6 +797,7 @@ export const useChatStore = createPersistStore(
         attachImages?: string[],
         isMcpResponse?: boolean,
       ) {
+        console.log("wu 不希望onMultiModelUserInput");
         const session = get().currentSession();
         const multiModelMode = session.multiModelMode!;
 
@@ -1028,6 +1100,7 @@ export const useChatStore = createPersistStore(
         refreshTitle: boolean = false,
         targetSession: ChatSession,
       ) {
+        console.log("wu 不希望summarizeSession");
         const config = useAppConfig.getState();
         const session = targetSession;
         const modelConfig = session.mask.modelConfig;
@@ -1237,12 +1310,12 @@ export const useChatStore = createPersistStore(
 
         const modelConfig = session.mask.modelConfig;
         const api: ClientApi = getClientApi(modelConfig.providerName);
-
+        console.log(`wu: retry`);
         // 发送请求
         try {
           await api.llm.chat({
             messages: sendMessages,
-            config: { ...modelConfig, stream: true },
+            config: { ...modelConfig, stream: false },
             onUpdate(message) {
               get().updateTargetSession(session, (session) => {
                 const currentMessage = session.messages[messageIndex];

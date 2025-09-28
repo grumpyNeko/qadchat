@@ -1,10 +1,11 @@
 import { getLang, Lang } from "../locales";
-import { DEFAULT_TOPIC, ChatMessage } from "./chat";
-import { ModelConfig, useAppConfig } from "./config";
-import { StoreKey } from "../constant";
+import { ChatMessage, DEFAULT_TOPIC } from "./chat";
+import { ModelConfig, ModelType, useAppConfig } from "./config";
+import { ServiceProvider, StoreKey } from "../constant";
 import { nanoid } from "nanoid";
 import { createPersistStore } from "../utils/store";
 import { getModelCompressThreshold } from "../config/model-context-tokens";
+import { DalleQuality, DalleStyle, ModelSize } from "@/app/typing";
 
 export type Mask = {
   id: string;
@@ -21,6 +22,11 @@ export type Mask = {
 
   enableArtifacts?: boolean;
   enableCodeFold?: boolean;
+
+  bendUrl: string;
+  botAvatar: string;
+  botName: string;
+  myAvatar: string;
 };
 
 export const DEFAULT_MASK_STATE = {
@@ -34,6 +40,102 @@ export type MaskState = typeof DEFAULT_MASK_STATE & {
 
 export const DEFAULT_MASK_AVATAR = "gpt-bot";
 export const DEFAULT_MASK_ID = "default-mask";
+export const Translate_MASK_ID = "translate-mask";
+export const createTranslateMask = () => {
+  return {
+    id: Translate_MASK_ID,
+    avatar: "1f40b",
+    name: "translate",
+    context: [],
+    syncGlobalConfig: false, // 修改为 false，让默认助手也保持自己的配置
+    modelConfig: {
+      //...useAppConfig.getState().modelConfig,
+      model: "grok-3-fast" as ModelType,
+      providerName: "XAI" as ServiceProvider,
+      temperature: 0.5,
+      top_p: 1,
+      max_tokens: 4000,
+      presence_penalty: 0,
+      frequency_penalty: 0,
+      sendMemory: true,
+      historyMessageCount: 4,
+      compressMessageLengthThreshold: 128000,
+      compressModel: "",
+      compressProviderName: "",
+      enableInjectSystemPrompts: true,
+      template: `{{input}}`,
+      size: "1024x1024" as ModelSize,
+      quality: "standard" as DalleQuality,
+      style: "vivid" as DalleStyle,
+      thinkingBudget: 0, // 思考深度：-1=动态思考（默认），0=关闭思考，>0=指定token数量
+    },
+    defaultModel: undefined, // 初始化默认模型为 undefined
+
+    lang: getLang(),
+    builtin: true, // 标记为内置，不可删除
+    createdAt: new Date("2025-09-01T00:00:00+08:00").getTime(),
+    bendUrl: "http://localhost:8088/api/v/translate",
+    botAvatar: "frieren.png",
+    botName: "translator",
+    myAvatar: "my.jpg",
+  } as Mask;
+};
+
+export const Argue_MASK_ID = "argue-mask";
+export const createArgueMask = () => {
+  return {
+    id: Argue_MASK_ID,
+    avatar: "1f40b",
+    name: "Charlie",
+    context: [],
+    syncGlobalConfig: false, // 修改为 false，让默认助手也保持自己的配置
+    modelConfig: {
+      //...useAppConfig.getState().modelConfig,
+      model: "grok-3-fast" as ModelType,
+      providerName: "XAI" as ServiceProvider,
+      temperature: 0.5,
+      top_p: 1,
+      max_tokens: 4000,
+      presence_penalty: 0,
+      frequency_penalty: 0,
+      sendMemory: true,
+      historyMessageCount: 4,
+      compressMessageLengthThreshold: 128000,
+      compressModel: "",
+      compressProviderName: "",
+      enableInjectSystemPrompts: true,
+      template: `{{input}}`,
+      size: "1024x1024" as ModelSize,
+      quality: "standard" as DalleQuality,
+      style: "vivid" as DalleStyle,
+      thinkingBudget: 0, // 思考深度：-1=动态思考（默认），0=关闭思考，>0=指定token数量
+    },
+    defaultModel: undefined, // 初始化默认模型为 undefined
+
+    lang: getLang(),
+    builtin: true, // 标记为内置，不可删除
+    createdAt: new Date("2025-09-01T00:00:00+08:00").getTime(),
+
+    bendUrl: "http://localhost:8088/api/v/argue",
+    botAvatar: "Charlie.jpg",
+    botName: "Charlie",
+    myAvatar: "my.jpg",
+  } as Mask;
+};
+
+export function isSameMask(
+  masks: Record<string, Mask>,
+  id: string,
+  mask: Mask,
+): boolean {
+  const currentMask = masks[id];
+  const isSame =
+    currentMask && JSON.stringify(currentMask) === JSON.stringify(mask);
+  if (!isSame) {
+    console.log(JSON.stringify(currentMask), JSON.stringify(mask));
+  }
+  return isSame;
+}
 
 export const createDefaultMask = () => {
   const globalConfig = useAppConfig.getState().modelConfig;
@@ -54,7 +156,12 @@ export const createDefaultMask = () => {
 
     lang: getLang(),
     builtin: true, // 标记为内置，不可删除
-    createdAt: Date.now(),
+    createdAt: new Date("2025-09-01T00:00:00+08:00").getTime(),
+
+    bendUrl: "",
+    botAvatar: "",
+    botName: "",
+    myAvatar: "",
   } as Mask;
 
   return defaultMask;
@@ -80,9 +187,31 @@ export const createEmptyMask = () => {
     builtin: false,
     createdAt: Date.now(),
     plugin: [],
+
+    bendUrl: "",
+    botAvatar: "",
+    botName: "",
+    myAvatar: "",
   } as Mask;
 };
 
+// 有循环渲染问题的代码
+// if (!isSameMask(masks, Translate_MASK_ID, createTranslateMask())) {
+//   console.log(`Translate_MASK_ID not same`)
+//   masks[Translate_MASK_ID] = createTranslateMask()
+// }
+// export function isSameMask(
+//   masks: Record<string, Mask>, id: string, mask: Mask
+// ): boolean {
+//   const currentMask = masks[id];
+//   const isSame =
+//   currentMask &&
+//     JSON.stringify(currentMask) === JSON.stringify(mask);
+//   if (!isSame) {
+//     console.log(JSON.stringify(currentMask), JSON.stringify(mask))
+//   }
+//   return isSame
+// }
 export const useMaskStore = createPersistStore(
   { ...DEFAULT_MASK_STATE },
 
@@ -127,19 +256,30 @@ export const useMaskStore = createPersistStore(
       return get().masks[id ?? 1145141919810];
     },
     getAll() {
-      // 确保默认助手存在
-      const masks = get().masks;
-      if (!masks[DEFAULT_MASK_ID]) {
-        const defaultMask = createDefaultMask();
-        masks[DEFAULT_MASK_ID] = defaultMask;
-        set(() => ({ masks }));
-      }
-
-      const userMasks = Object.values(masks).sort(
+      // 避免在渲染期间触发set()，不修改store状态
+      // 仅在返回结果中确保必需的内置助手存在
+      const ensuredMasks: Record<string, Mask> = {
+        DEFAULT_MASK_ID: createDefaultMask(),
+        Translate_MASK_ID: createTranslateMask(),
+        Argue_MASK_ID: createArgueMask(),
+      };
+      const ret = Object.values(ensuredMasks).sort(
         (a, b) => b.createdAt - a.createdAt,
       );
-
-      return userMasks;
+      return ret;
+      // const masks = get().masks;
+      // const ensuredMasks: Record<string, Mask> = {
+      //   ...masks,
+      //   [DEFAULT_MASK_ID]: masks[DEFAULT_MASK_ID]
+      //     ? masks[DEFAULT_MASK_ID]
+      //     : createDefaultMask(),
+      //   [Translate_MASK_ID]: masks[Translate_MASK_ID]
+      //     ? masks[Translate_MASK_ID]
+      //     : createTranslateMask(),
+      //   [Argue_MASK_ID]: masks[Argue_MASK_ID]
+      //     ? masks[Argue_MASK_ID]
+      //     : createArgueMask(),
+      // };
     },
     search(text: string) {
       return Object.values(get().masks);

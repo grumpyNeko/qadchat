@@ -26,16 +26,12 @@ export function MaskList(props: MaskListProps) {
   const appConfig = useAppConfig();
   const navigate = useNavigate();
 
-  // 获取所有可用的助手，默认助手排在最前面
-  const allMasks = maskStore.getAll().sort((a, b) => {
-    if (a.id === "default-mask") return -1;
-    if (b.id === "default-mask") return 1;
-    return 0;
-  });
+  const allMasks = maskStore.getAll();
 
   const currentMaskId = chatStore.currentMaskId;
 
   const handleSelectMask = (maskId: string) => {
+    console.log(`wu handleSelectMask ${maskId}`);
     // 选择助手
     chatStore.selectMask(maskId);
 
@@ -120,9 +116,23 @@ export function MaskList(props: MaskListProps) {
                 onClick={() => handleSelectMask(mask.id)}
               >
                 <div className={styles["mask-item-avatar"]}>
-                  <MaskAvatar
-                    avatar={mask.avatar}
-                    model={getMaskEffectiveModel(mask)}
+                  {/*<MaskAvatar*/}
+                  {/*  avatar={mask.avatar}*/}
+                  {/*  model={getMaskEffectiveModel(mask)}*/}
+                  {/*/>*/}
+                  <img
+                    src={mask.botAvatar}
+                    alt={""}
+                    width={45}
+                    height={45}
+                    style={{
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      border: "1px solid #ddd", // 可选的边框
+                    }}
+                    onError={(e) => {
+                      console.log(`图片加载失败`, e);
+                    }}
                   />
                 </div>
                 <div className={styles["mask-item-info"]}>

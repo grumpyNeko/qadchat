@@ -53,11 +53,11 @@ export const DEFAULT_CONFIG = {
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   sidebarCollapsed: false, // 控制侧边栏是否完全隐藏
 
-  enableArtifacts: true, // show artifacts config
+  enableArtifacts: false, // show artifacts config
 
   enableCodeFold: true, // code fold config
 
-  disablePromptHint: false,
+  disablePromptHint: true,
 
   useModelIconAsAvatar: false, // use model icon as AI avatar instead of emoji
 
@@ -65,8 +65,8 @@ export const DEFAULT_CONFIG = {
   models: DEFAULT_MODELS as any as LLMModel[],
 
   modelConfig: {
-    model: "gpt-4o-mini" as ModelType,
-    providerName: "OpenAI" as ServiceProvider,
+    model: "grok-3-fast" as ModelType,
+    providerName: "XAI" as ServiceProvider,
     temperature: 0.5,
     top_p: 1,
     max_tokens: 4000,
@@ -86,7 +86,7 @@ export const DEFAULT_CONFIG = {
   },
 
   ttsConfig: {
-    enable: false,
+    enable: true,
     autoplay: false,
     engine: DEFAULT_TTS_ENGINE,
     model: DEFAULT_TTS_MODEL,
